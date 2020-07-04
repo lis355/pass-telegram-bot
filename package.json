@@ -1,0 +1,15 @@
+{
+	"name": "pass-telegram-bot",
+	"version": "1.0.0",
+	"license": "MIT",
+	"scripts": {},
+	"devDependencies": {
+		"eslint": "^7.4.0",
+		"eslint-config-protop": "^1.0.0"
+	},
+	"dependencies": {
+		"keepass.io": "^1.1.4",
+		"ndapp": "^1.0.11",
+		"uuid": "^8.2.0"
+	}
+}
