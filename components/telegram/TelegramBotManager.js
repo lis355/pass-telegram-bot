@@ -14,8 +14,10 @@ const commandMiddleware = (ctx, next) => {
 	return next();
 };
 
-module.exports = class TelegramBot {
+module.exports = class TelegramBotManager extends ndapp.ApplicationComponent {
 	async initialize() {
+		await super.initialize();
+
 		if (!process.env.TELEGRAM_APIKEY) throw new Error("No telegram bot token");
 
 		const telegramOptions = {};
@@ -46,13 +48,8 @@ module.exports = class TelegramBot {
 
 	registerCommands() {
 		this.bot.command("find", commandMiddleware, async ctx => {
+			// DEBUG
 			return ctx.reply(this.onFindCommand(ctx.state.command.arguments[0]));
 		});
 	}
-
-	// async sendMessage(telegramId, message) {
-	// 	if (!telegramId || !message) return;
-
-	// 	await this.bot.telegram.sendMessage(telegramId, message);
-	// }
 };
