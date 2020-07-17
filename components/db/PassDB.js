@@ -109,6 +109,7 @@ class PassDB {
 
 	findEntries(options) {
 		let { pattern, caseSensitive } = options;
+		if (!pattern) return [];
 
 		if (!caseSensitive) {
 			pattern = pattern.toLowerCase();
@@ -124,11 +125,11 @@ class PassDB {
 		});
 	}
 
-	addEntry(title, username, pass, notes) {
-		// const id = generateUuid();
+	// addEntry(title, username, pass, notes) {
+	// 	const id = generateUuid();
 
-		this.dirty = true;
-	}
+	// 	this.dirty = true;
+	// }
 }
 
 module.exports = PassDB;

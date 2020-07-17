@@ -11,6 +11,7 @@
 		"dotenv-flow": "^3.2.0",
 		"https-proxy-agent": "^5.0.0",
 		"keepass.io": "^1.1.4",
+		"lowdb": "^1.0.0",
 		"ndapp": "^1.0.11",
 		"telegraf": "^3.38.0",
 		"uuid": "^8.2.0"
