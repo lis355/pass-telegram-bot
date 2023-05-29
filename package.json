@@ -4,16 +4,14 @@
 	"license": "MIT",
 	"scripts": {},
 	"devDependencies": {
-		"eslint": "^7.4.0",
+		"eslint": "^8.41.0",
 		"eslint-config-protop": "^1.0.0"
 	},
 	"dependencies": {
+		"axios": "^1.4.0",
 		"dotenv-flow": "^3.2.0",
-		"https-proxy-agent": "^5.0.0",
-		"keepass.io": "^1.1.4",
-		"lowdb": "^1.0.0",
-		"ndapp": "^1.0.11",
-		"telegraf": "^3.38.0",
-		"uuid": "^8.2.0"
+		"kdbxweb": "^2.1.1",
+		"ndapp": "^1.0.17",
+		"telegraf": "^4.12.2"
 	}
 }

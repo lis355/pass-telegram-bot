@@ -2,12 +2,23 @@ require("dotenv-flow").config();
 
 const ndapp = require("ndapp");
 
+// class AppManager extends ndapp.Application {
+// 	constructor() {
+// 		super();
+
+// 		const errorHandler = error => {
+// 			console.error(error.message);
+// 		};
+
+// 		this.onUncaughtException = errorHandler;
+// 		this.onUnhandledRejection = errorHandler;
+// 	}
+// }
+
 ndapp({
+	// app: new AppManager(),
 	components: [
-		() => new (require("./components/LocalDbManager"))(),
-		() => new (require("./components/db/DbManager"))(),
-		() => new (require("./components/telegram/TelegramBotManager"))()
-	],
-	onRun: async () => {
-	}
+		() => new (require("./components/KeePassDBManager"))(),
+		() => new (require("./components/TelegramBotManager"))()
+	]
 });
