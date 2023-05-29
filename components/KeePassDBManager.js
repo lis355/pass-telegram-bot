@@ -78,7 +78,7 @@ module.exports = class KeePassDBManager extends ndapp.ApplicationComponent {
 	}
 
 	async loadDB() {
-		const dbProvider = new YandexDiskLocalDBProvider();
+		const dbProvider = process.env.YANDEX_DISK_USE_REMOTE === "true" ? new YandexDiskRemoteDBProvider() : new YandexDiskLocalDBProvider();
 
 		this.db = await dbProvider.getDB();
 	}
