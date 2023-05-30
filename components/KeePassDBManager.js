@@ -81,6 +81,8 @@ module.exports = class KeePassDBManager extends ndapp.ApplicationComponent {
 		const dbProvider = process.env.YANDEX_DISK_USE_REMOTE === "true" ? new YandexDiskRemoteDBProvider() : new YandexDiskLocalDBProvider();
 
 		this.db = await dbProvider.getDB();
+
+		app.log.info(`KeePassDB: loaded with ${dbProvider.constructor.name}`);
 	}
 
 	searchEntries(pattern) {
@@ -95,6 +97,8 @@ module.exports = class KeePassDBManager extends ndapp.ApplicationComponent {
 
 			this.subSearchEntriesInGroup(group.entries, patternInLowerCase);
 		}
+
+		app.log.info(`KeePassDB: searchedEntries ${this.searchedEntries.length} with pattern ${pattern}`);
 
 		return this.searchedEntries;
 	}
