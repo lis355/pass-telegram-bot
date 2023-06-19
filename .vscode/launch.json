@@ -8,13 +8,19 @@
 			"type": "node",
 			"request": "launch",
 			"name": "start",
-			"program": "${workspaceFolder}/start.js"
+			"program": "${workspaceFolder}/start.js",
+			"env": {
+				"DEVELOP": "true"
+			}
 		},
 		{
 			"type": "node",
 			"request": "launch",
 			"name": "tests",
-			"program": "${workspaceFolder}/tests.js"
+			"program": "${workspaceFolder}/tests.js",
+			"env": {
+				"DEVELOP": "true"
+			}
 		}
 	]
 }

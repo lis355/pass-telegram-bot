@@ -13,6 +13,10 @@ class AppManager extends ndapp.Application {
 		this.onUncaughtException = errorHandler;
 		this.onUnhandledRejection = errorHandler;
 	}
+
+	get isDevelop() {
+		return process.env.DEVELOP === "true";
+	}
 }
 
 ndapp({

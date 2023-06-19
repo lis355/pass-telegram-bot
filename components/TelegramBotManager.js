@@ -32,68 +32,88 @@ module.exports = class TelegramBotManager extends ndapp.ApplicationComponent {
 
 		this.bot = new Telegraf(process.env.TELEGRAM_TOKEN);
 
+		if (app.isDevelop) {
+			this.bot.use((ctx, next) => {
+				app.log.info(app.tools.json.format(app.libs._.omit(ctx, "telegram")));
+
+				return next();
+			});
+		}
+
 		this.bot
-			// dev
-			// this.bot.use((ctx, next) => {
-			// 	app.log.info(app.tools.json.format(app.libs._.omit(ctx, "telegram")));
-			// 	return next();
-			// })
-			.command("start", async ctx => {
-			})
-			.command("refresh", isMeMiddleware, commandMiddleware, async ctx => {
-				await app.keePassDbManager.loadDB();
+			.command("start",
+				isMeMiddleware,
+				async ctx => {
+					await this.sendMessageWithAutoDelete(ctx.message.chat.id, "Hi!");
+				})
+			.command("refresh",
+				isMeMiddleware,
+				commandMiddleware,
+				async ctx => {
+					await app.keePassDbManager.loadDB();
 
-				this.autoDeleteMessage(ctx.message.chat.id, ctx.message["message_id"]);
-			})
-			.command("psw", commandMiddleware, async ctx => {
-				const { username, password } = app.tools.generateUsernameAndPassword();
+					this.autoDeleteContextMessage(ctx);
+					await this.sendMessageWithAutoDelete(ctx.message.chat.id, "DB reloaded");
+				})
+			.command("psw",
+				commandMiddleware,
+				async ctx => {
+					const { username, password } = app.tools.generateUsernameAndPassword();
 
-				const lines = [];
-				lines.push(copyableText(username));
-				lines.push(copyableText(password));
+					const lines = [];
+					lines.push(copyableText(username));
+					lines.push(copyableText(password));
 
-				const message = lines.join(app.os.EOL);
+					const message = lines.join(app.os.EOL);
 
-				const sendMessageResponse = await ctx.telegram.sendMessage(ctx.message.chat.id, message, {
-					parse_mode: "Markdown"
-				});
+					this.autoDeleteContextMessage(ctx);
+					await this.sendMessageWithAutoDelete(ctx.message.chat.id, message, {
+						parse_mode: "Markdown"
+					});
+				})
+			.on(message("text"),
+				isMeMiddleware,
+				async ctx => {
+					let message = app.keePassDbManager.searchEntries(ctx.message.text).map(entry => {
+						const title = `${entry.fields.get("Title")} (${entry.parentGroup.name})`;
+						const username = entry.fields.get("UserName");
+						const password = entry.fields.get("Password");
+						const notes = entry.fields.get("Notes");
 
-				this.autoDeleteMessage(ctx.message.chat.id, ctx.message["message_id"]);
-				this.autoDeleteMessage(ctx.message.chat.id, sendMessageResponse["message_id"]);
-			})
-			.on(message("text"), isMeMiddleware, async ctx => {
-				let message = app.keePassDbManager.searchEntries(ctx.message.text).map(entry => {
-					const title = `${entry.fields.get("Title")} (${entry.parentGroup.name})`;
-					const username = entry.fields.get("UserName");
-					const password = entry.fields.get("Password");
-					const notes = entry.fields.get("Notes");
+						const lines = [title];
+						if (username) lines.push(copyableText(username));
+						if (password) lines.push(copyableText(password.getText()));
+						if (notes) lines.push(...notes.split(app.os.EOL).map(copyableText));
 
-					const lines = [title];
-					if (username) lines.push(copyableText(username));
-					if (password) lines.push(copyableText(password.getText()));
-					if (notes) lines.push("", copyableText(notes));
+						return lines.join(app.os.EOL);
+					}).join(app.os.EOL + app.os.EOL);
 
-					return lines.join(app.os.EOL);
-				}).join(app.os.EOL + app.os.EOL);
+					if (!message) message = "Не найдено";
 
-				if (!message) message = "Не найдено";
-
-				const sendMessageResponse = await ctx.telegram.sendMessage(ctx.message.chat.id, message, {
-					parse_mode: "Markdown"
-				});
-
-				this.autoDeleteMessage(ctx.message.chat.id, ctx.message["message_id"]);
-				this.autoDeleteMessage(ctx.message.chat.id, sendMessageResponse["message_id"]);
-			})
+					this.autoDeleteContextMessage(ctx);
+					await this.sendMessageWithAutoDelete(ctx.message.chat.id, message, {
+						parse_mode: "Markdown"
+					});
+				})
 			.catch((error, ctx) => {
 				app.log.error(`Error for ${ctx.updateType}, ${error.message}, ${error.stack}`);
 			})
 			.launch();
 	}
 
-	async autoDeleteMessage(chatId, messageId) {
+	async sendMessageWithAutoDelete(chatId, message, options) {
+		const sendMessageResponse = await this.bot.telegram.sendMessage(chatId, message, options);
+
+		await this.autoDeleteMessage(chatId, sendMessageResponse["message_id"]);
+	}
+
+	autoDeleteMessage(chatId, messageId) {
 		setTimeout(async () => {
 			await this.bot.telegram.deleteMessage(chatId, messageId);
 		}, MESSAGE_LIFETIME_IN_MILLISECONDS);
+	}
+
+	autoDeleteContextMessage(ctx) {
+		this.autoDeleteMessage(ctx.message.chat.id, ctx.message["message_id"]);
 	}
 };
