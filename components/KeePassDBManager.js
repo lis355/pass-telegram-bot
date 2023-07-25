@@ -16,10 +16,14 @@ class YandexDiskRemoteDBProvider extends DBProvider {
 			}
 		});
 
-		const kdbxFileData = await this.downloadFile(process.env.YANDEX_DISK_DB_FILE_PATH);
-		const keyFileData = await this.downloadFile(process.env.YANDEX_DISK_DB_KEY_FILE_PATH);
+		const credentials = new kdbxweb.Credentials();
+		if (process.env.YANDEX_DISK_KEEPASS_DB_MASTER_PASSWORD) await credentials.setPassword(kdbxweb.ProtectedValue.fromString(process.env.YANDEX_DISK_KEEPASS_DB_MASTER_PASSWORD));
+		if (process.env.YANDEX_DISK_KEEPASS_DB_KEY_FILE_PATH) {
+			const keyFileData = await this.downloadFile(process.env.YANDEX_DISK_KEEPASS_DB_KEY_FILE_PATH);
+			await credentials.setKeyFile(keyFileData);
+		}
 
-		const credentials = new kdbxweb.Credentials(null, keyFileData);
+		const kdbxFileData = await this.downloadFile(process.env.YANDEX_DISK_KEEPASS_DB_FILE_PATH);
 		const db = await kdbxweb.Kdbx.load(new Uint8Array(kdbxFileData).buffer, credentials);
 
 		return db;
@@ -60,10 +64,11 @@ class YandexDiskRemoteDBProvider extends DBProvider {
 
 class YandexDiskLocalDBProvider extends DBProvider {
 	async getDB() {
-		const kdbxFileData = app.fs.readFileSync(process.env.YANDEX_DISK_LOCAL_FILE_PATH);
-		const keyFileData = app.fs.readFileSync(process.env.YANDEX_DISK_LOCAL_KEY_FILE_PATH);
+		const credentials = new kdbxweb.Credentials();
+		if (process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_MASTER_PASSWORD) await credentials.setPassword(kdbxweb.ProtectedValue.fromString(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_MASTER_PASSWORD));
+		if (process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_KEY_FILE_PATH) await credentials.setKeyFile(app.fs.readFileSync(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_KEY_FILE_PATH));
 
-		const credentials = new kdbxweb.Credentials(null, keyFileData);
+		const kdbxFileData = app.fs.readFileSync(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_FILE_PATH);
 		const db = await kdbxweb.Kdbx.load(new Uint8Array(kdbxFileData).buffer, credentials);
 
 		return db;
