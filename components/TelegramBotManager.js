@@ -7,10 +7,8 @@ function copyableText(str) {
 	return `\`${str}\``;
 }
 
-const TELEGRAM_USER_ID = parseFloat(process.env.TELEGRAM_USER_ID);
-
 function isMeMiddleware(ctx, next) {
-	if (ctx.chat.id !== TELEGRAM_USER_ID) throw new Error(`Bad user @${ctx.chat.username} (id=${ctx.chat.id})`);
+	if (ctx.chat.id !== Number(process.env.TELEGRAM_USER_ID)) throw new Error(`Bad user @${ctx.chat.username} (id=${ctx.chat.id})`);
 
 	return next();
 }

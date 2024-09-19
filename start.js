@@ -7,7 +7,7 @@ class AppManager extends ndapp.Application {
 		super();
 
 		const errorHandler = error => {
-			console.error(error.message);
+			console.error(error.stack);
 		};
 
 		this.onUncaughtException = errorHandler;
@@ -16,6 +16,13 @@ class AppManager extends ndapp.Application {
 
 	get isDevelop() {
 		return process.env.DEVELOP === "true";
+	}
+
+	async initialize() {
+		const { default: ydc } = await import("ydc");
+		await ydc();
+
+		await super.initialize();
 	}
 }
 

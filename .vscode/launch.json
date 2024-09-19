@@ -14,15 +14,6 @@
 			}
 		},
 		{
-			"name": "tests",
-			"type": "node",
-			"request": "launch",
-			"program": "${workspaceFolder}/tests.js",
-			"env": {
-				"DEVELOP": "true"
-			}
-		},
-		{
 			"name": "service-windows-install",
 			"type": "node",
 			"request": "launch",

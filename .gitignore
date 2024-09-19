@@ -1,6 +1,8 @@
 yarn.lock
+package-lock.json
 node_modules/
-credentials/
-temp/
-.env.*
+
 daemon/
+
+.ydc
+.env.*
