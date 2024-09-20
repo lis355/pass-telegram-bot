@@ -44,6 +44,11 @@ module.exports = class TelegramBotManager extends ndapp.ApplicationComponent {
 				async ctx => {
 					await this.sendMessageWithAutoDelete(ctx.message.chat.id, "Hi!");
 				})
+			.command("stop",
+				isMeMiddleware,
+				async ctx => {
+					app.quit(1);
+				})
 			.command("refresh",
 				isMeMiddleware,
 				commandMiddleware,
@@ -96,7 +101,7 @@ module.exports = class TelegramBotManager extends ndapp.ApplicationComponent {
 			.catch((error, ctx) => {
 				app.log.error(`Error for ${ctx.updateType}, ${error.message}, ${error.stack}`);
 			})
-			.launch();
+			.launch({ dropPendingUpdates: !app.isDevelop });
 	}
 
 	async sendMessageWithAutoDelete(chatId, message, options) {

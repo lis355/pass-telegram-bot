@@ -1,6 +1,7 @@
 require("dotenv-flow").config();
 
 const ndapp = require("ndapp");
+const service = require("./service/windows/service");
 
 class AppManager extends ndapp.Application {
 	constructor() {
@@ -23,6 +24,18 @@ class AppManager extends ndapp.Application {
 		await ydc();
 
 		await super.initialize();
+	}
+
+	async quit(code = 0) {
+		if (!app.isDevelop) {
+			await new Promise(resolve => {
+				service.once("uninstall", resolve);
+
+				service.uninstall();
+			})
+		}
+
+		await super.quit(code);
 	}
 }
 

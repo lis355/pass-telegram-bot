@@ -4,7 +4,7 @@ const { Service } = require("node-windows");
 
 const { name } = require("../../package.json");
 
-const workingDirectory = path.resolve("../..");
+const workingDirectory = path.resolve(__dirname, "../..");
 
 const svc = new Service({
 	name,
