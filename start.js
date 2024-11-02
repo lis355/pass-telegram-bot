@@ -1,52 +1,40 @@
-require("dotenv-flow").config();
+import dotenv from "dotenv-flow";
+import ydc from "ydc";
 
-const ndapp = require("ndapp");
-const service = require("./service/windows/service");
+import Application from "./app/Application.js";
+import KeePassDBManager from "./components/KeePassDBManager.js";
+import service from "./service/windows/service.js";
+import TelegramBotManager from "./components/TelegramBotManager.js";
 
-class AppManager extends ndapp.Application {
+dotenv.config();
+
+await ydc();
+
+class AppManager extends Application {
 	constructor() {
 		super();
 
-		const errorHandler = error => {
-			console.error(error.stack);
-		};
-
-		this.onUncaughtException = errorHandler;
-		this.onUnhandledRejection = errorHandler;
+		this.addComponent(new KeePassDBManager(this));
+		this.addComponent(new TelegramBotManager(this));
 	}
 
 	get isDevelop() {
 		return process.env.DEVELOP === "true";
 	}
 
-	async initialize() {
-		const { default: ydc } = await import("ydc");
-		await ydc();
-
-		await super.initialize();
-	}
-
 	async quit(code = 0) {
-		if (!app.isDevelop) {
+		if (!this.isDevelop) {
 			await new Promise(resolve => {
 				service.once("uninstall", resolve);
 
 				service.uninstall();
-			})
+			});
 		}
 
 		await super.quit(code);
 	}
 }
 
-ndapp({
-	app: new AppManager(),
-	components: [
-		() => new (require("./components/KeePassDBManager"))(),
-		() => new (require("./components/TelegramBotManager"))()
-	],
-	tools: {
-		generatePassword: require("./tools/generatePassword"),
-		generateUsernameAndPassword: require("./tools/generateUsernameAndPassword")
-	}
-});
+const app = new AppManager();
+await app.initialize();
+await app.run();

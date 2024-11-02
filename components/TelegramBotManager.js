@@ -1,7 +1,14 @@
-const { Telegraf } = require("telegraf");
-const { message } = require("telegraf/filters");
+import { EOL } from "node:os";
+
+import _ from "lodash";
+import { message } from "telegraf/filters";
+import { Telegraf } from "telegraf";
+
+import ApplicationComponent from "../app/ApplicationComponent.js";
+import generateUsernameAndPassword from "../tools/generateUsernameAndPassword.js";
 
 const MESSAGE_LIFETIME_IN_MILLISECONDS = 30000;
+const MAX_SEARCH_ENTRIES_COUNT = 3;
 
 function copyableText(str) {
 	return `\`${str}\``;
@@ -24,15 +31,15 @@ function commandMiddleware(ctx, next) {
 	return next();
 }
 
-module.exports = class TelegramBotManager extends ndapp.ApplicationComponent {
+export default class TelegramBotManager extends ApplicationComponent {
 	async initialize() {
 		await super.initialize();
 
 		this.bot = new Telegraf(process.env.TELEGRAM_TOKEN);
 
-		if (app.isDevelop) {
+		if (this.application.isDevelop) {
 			this.bot.use((ctx, next) => {
-				app.log.info(app.tools.json.format(app.libs._.omit(ctx, "telegram")));
+				console.log(_.omit(ctx, "telegram"));
 
 				return next();
 			});
@@ -47,13 +54,13 @@ module.exports = class TelegramBotManager extends ndapp.ApplicationComponent {
 			.command("stop",
 				isMeMiddleware,
 				async ctx => {
-					app.quit(1);
+					this.application.quit(1);
 				})
 			.command("refresh",
 				isMeMiddleware,
 				commandMiddleware,
 				async ctx => {
-					await app.keePassDbManager.loadDB();
+					await this.application.keePassDbManager.loadDB();
 
 					this.autoDeleteContextMessage(ctx);
 					await this.sendMessageWithAutoDelete(ctx.message.chat.id, "DB reloaded");
@@ -61,13 +68,13 @@ module.exports = class TelegramBotManager extends ndapp.ApplicationComponent {
 			.command("psw",
 				commandMiddleware,
 				async ctx => {
-					const { username, password } = app.tools.generateUsernameAndPassword();
+					const { username, password } = generateUsernameAndPassword();
 
 					const lines = [];
 					lines.push(copyableText(username));
 					lines.push(copyableText(password));
 
-					const message = lines.join(app.os.EOL);
+					const message = lines.join(EOL);
 
 					this.autoDeleteContextMessage(ctx);
 					await this.sendMessageWithAutoDelete(ctx.message.chat.id, message, {
@@ -77,21 +84,37 @@ module.exports = class TelegramBotManager extends ndapp.ApplicationComponent {
 			.on(message("text"),
 				isMeMiddleware,
 				async ctx => {
-					let message = app.keePassDbManager.searchEntries(ctx.message.text).map(entry => {
-						const title = `${entry.fields.get("Title")} (${entry.parentGroup.name})`;
-						const username = entry.fields.get("UserName");
-						const password = entry.fields.get("Password");
-						const notes = entry.fields.get("Notes");
+					let message;
 
-						const lines = [title];
-						if (username) lines.push(copyableText(username));
-						if (password) lines.push(copyableText(password.getText()));
-						if (notes) lines.push(...notes.split(app.os.EOL).map(copyableText));
+					const searchEntriesResult = this.application.keePassDbManager.searchEntries(ctx.message.text);
+					if (searchEntriesResult.entries.length === 0) {
+						message = "Не найдено";
+					} else if (searchEntriesResult.entries.length >= MAX_SEARCH_ENTRIES_COUNT) {
+						message = searchEntriesResult.entries
+							.slice(0, MAX_SEARCH_ENTRIES_COUNT)
+							.map(entry => {
+								const title = `${entry.fields.get("Title")} (${entry.parentGroup.name})`;
 
-						return lines.join(app.os.EOL);
-					}).join(app.os.EOL + app.os.EOL);
+								const lines = [copyableText(title)];
 
-					if (!message) message = "Не найдено";
+								return lines.join(EOL);
+							}).join(EOL);
+					} else {
+						message = searchEntriesResult.entries
+							.map(entry => {
+								const title = `${entry.fields.get("Title")} (${entry.parentGroup.name})`;
+								const username = entry.fields.get("UserName");
+								const password = entry.fields.get("Password");
+								const notes = entry.fields.get("Notes");
+
+								const lines = [title];
+								if (username) lines.push(copyableText(username));
+								if (password) lines.push(copyableText(password.getText()));
+								if (notes) lines.push(...notes.split(EOL).map(copyableText));
+
+								return lines.join(EOL);
+							}).join(EOL + EOL);
+					}
 
 					this.autoDeleteContextMessage(ctx);
 					await this.sendMessageWithAutoDelete(ctx.message.chat.id, message, {
@@ -99,9 +122,9 @@ module.exports = class TelegramBotManager extends ndapp.ApplicationComponent {
 					});
 				})
 			.catch((error, ctx) => {
-				app.log.error(`Error for ${ctx.updateType}, ${error.message}, ${error.stack}`);
+				console.error(`Error for ${ctx.updateType}, ${error.message}, ${error.stack}`);
 			})
-			.launch({ dropPendingUpdates: !app.isDevelop });
+			.launch({ dropPendingUpdates: !this.application.isDevelop });
 	}
 
 	async sendMessageWithAutoDelete(chatId, message, options) {
@@ -119,4 +142,4 @@ module.exports = class TelegramBotManager extends ndapp.ApplicationComponent {
 	autoDeleteContextMessage(ctx) {
 		this.autoDeleteMessage(ctx.message.chat.id, ctx.message["message_id"]);
 	}
-};
+}

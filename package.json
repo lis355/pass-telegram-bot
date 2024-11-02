@@ -1,20 +1,19 @@
 {
 	"name": "pass-telegram-bot",
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"license": "MIT",
-	"scripts": {},
-	"devDependencies": {
-		"eslint": "^8.57.1",
-		"eslint-config-protop": "^1.0.0",
-		"node-windows": "^1.0.0-beta.8"
-	},
+	"type": "module",
 	"dependencies": {
 		"axios": "^1.7.7",
 		"casual": "^1.6.2",
 		"dotenv-flow": "^4.1.0",
+		"fs-extra": "^11.2.0",
 		"kdbxweb": "^2.1.1",
-		"ndapp": "^1.0.17",
+		"lodash": "^4.17.21",
 		"telegraf": "^4.16.3",
 		"ydc": "^1.0.1"
+	},
+	"devDependencies": {
+		"node-windows": "^1.0.0-beta.8"
 	}
 }

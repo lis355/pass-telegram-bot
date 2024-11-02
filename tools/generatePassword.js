@@ -1,4 +1,4 @@
-const crypto = require("crypto");
+import crypto from "crypto";
 
 function randomInt(n) {
 	return crypto.randomInt(0, n);
@@ -14,7 +14,7 @@ function insert(str, index, value) {
 
 // Пароль из 12 символов, где есть 1 заглавная буква, 1 символ и 1 число
 
-module.exports = function generatePassword() {
+export default function generatePassword() {
 	const LENGTH = 12;
 	const ABC = "abcdefghijklmnopqrstuvwxyz";
 	const ABC_UPPER_CASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -30,4 +30,4 @@ module.exports = function generatePassword() {
 	password = insert(password, randomInt(password.length), sample(SYMBOLS));
 
 	return password;
-};
+}

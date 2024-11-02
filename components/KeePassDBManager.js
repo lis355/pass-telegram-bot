@@ -1,7 +1,8 @@
-/* eslint-disable no-unused-vars */
+import axios from "axios";
+import fs from "fs-extra";
+import kdbxweb from "kdbxweb";
 
-const kdbxweb = require("kdbxweb");
-const axios = require("axios");
+import ApplicationComponent from "../app/ApplicationComponent.js";
 
 class DBProvider {
 	async getDB() { }
@@ -60,26 +61,29 @@ class YandexDiskRemoteDBProvider extends DBProvider {
 			}
 		}
 	}
-};
+}
 
 class YandexDiskLocalDBProvider extends DBProvider {
 	async getDB() {
 		const credentials = new kdbxweb.Credentials();
 		if (process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_MASTER_PASSWORD) await credentials.setPassword(kdbxweb.ProtectedValue.fromString(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_MASTER_PASSWORD));
-		if (process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_KEY_FILE_PATH) await credentials.setKeyFile(app.fs.readFileSync(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_KEY_FILE_PATH));
+		if (process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_KEY_FILE_PATH) await credentials.setKeyFile(fs.readFileSync(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_KEY_FILE_PATH));
 
-		const kdbxFileData = app.fs.readFileSync(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_FILE_PATH);
+		const kdbxFileData = fs.readFileSync(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_FILE_PATH);
 		const db = await kdbxweb.Kdbx.load(new Uint8Array(kdbxFileData).buffer, credentials);
 
 		return db;
 	}
-};
+}
 
-module.exports = class KeePassDBManager extends ndapp.ApplicationComponent {
+export default class KeePassDBManager extends ApplicationComponent {
 	async initialize() {
 		await super.initialize();
 
 		await this.loadDB();
+
+		this.searchEntries("Gmail");
+		this.searchEntries("Gmail (ALL)");
 	}
 
 	async loadDB() {
@@ -87,32 +91,39 @@ module.exports = class KeePassDBManager extends ndapp.ApplicationComponent {
 
 		this.db = await dbProvider.getDB();
 
-		app.log.info(`KeePassDB: loaded with ${dbProvider.constructor.name}`);
+		console.log(`KeePassDB: loaded with ${dbProvider.constructor.name}`);
 	}
 
 	searchEntries(pattern) {
 		const patternInLowerCase = pattern.toLowerCase();
 
-		this.searchedEntries = [];
+		const searchEntriesResult = {
+			entries: []
+		};
 
-		this.subSearchEntriesInGroup(this.db.getDefaultGroup().entries, patternInLowerCase);
+		this.recursiveSearchEntriesInGroup(searchEntriesResult, this.db.getDefaultGroup(), patternInLowerCase);
 
-		for (const group of this.db.getDefaultGroup().groups) {
-			if (group.name === "Recycle Bin") continue;
+		console.log(`KeePassDB: searchedEntries ${searchEntriesResult.entries.length} with pattern ${pattern}`);
 
-			this.subSearchEntriesInGroup(group.entries, patternInLowerCase);
-		}
-
-		app.log.info(`KeePassDB: searchedEntries ${this.searchedEntries.length} with pattern ${pattern}`);
-
-		return this.searchedEntries;
+		return searchEntriesResult;
 	}
 
-	subSearchEntriesInGroup(entries, patternInLowerCase) {
-		for (const entry of entries) {
-			const title = entry.fields.get("Title");
+	recursiveSearchEntriesInGroup(searchEntriesResult, group, patternInLowerCase) {
+		const groupNameInLowerCase = group.name.toLowerCase();
 
-			if (title.toLowerCase().includes(patternInLowerCase)) this.searchedEntries.push(entry);
+		for (const entry of group.entries) {
+			const titleInLowerCase = entry.fields.get("Title").toLowerCase();
+
+			if (groupNameInLowerCase.includes(patternInLowerCase) ||
+				patternInLowerCase.includes(groupNameInLowerCase) ||
+				titleInLowerCase.toLowerCase().includes(patternInLowerCase) ||
+				patternInLowerCase.includes(titleInLowerCase)) searchEntriesResult.entries.push(entry);
+		}
+
+		for (const childGroup of group.groups) {
+			if (childGroup.name === "Recycle Bin") continue;
+
+			this.recursiveSearchEntriesInGroup(searchEntriesResult, childGroup, patternInLowerCase);
 		}
 	}
-};
+}

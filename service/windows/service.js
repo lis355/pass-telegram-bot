@@ -1,15 +1,17 @@
-const path = require("node:path");
+import path from "node:path";
 
-const { Service } = require("node-windows");
+import fs from "fs-extra";
 
-const { name } = require("../../package.json");
+import { Service } from "node-windows";
 
-const workingDirectory = path.resolve(__dirname, "../..");
+const workingDirectory = path.resolve(process.cwd());
+
+const { name } = fs.readJsonSync(path.resolve(process.cwd(), "package.json"));
 
 const svc = new Service({
 	name,
 	description: "",
-	script: path.resolve(workingDirectory, "start.js"),
+	script: path.join(workingDirectory, "start.js"),
 	workingDirectory
 });
 
@@ -45,4 +47,4 @@ svc.on("error", error => {
 	console.error(error);
 });
 
-module.exports = svc;
+export default svc;

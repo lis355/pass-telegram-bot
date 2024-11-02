@@ -1,8 +1,10 @@
-const casual = require("casual");
+import casual from "casual";
 
-module.exports = function generateUsernameAndPassword() {
+import generatePassword from "./generatePassword.js";
+
+export default function generateUsernameAndPassword() {
 	return {
 		username: casual.username.replace(/[._]/g, ""),
-		password: app.tools.generatePassword()
+		password: generatePassword()
 	};
-};
+}
