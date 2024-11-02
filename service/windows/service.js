@@ -1,16 +1,15 @@
 import path from "node:path";
 
-import fs from "fs-extra";
-
 import { Service } from "node-windows";
+import fs from "fs-extra";
 
 const workingDirectory = path.resolve(process.cwd());
 
-const { name } = fs.readJsonSync(path.resolve(process.cwd(), "package.json"));
+const { name } = fs.readJsonSync(path.join(workingDirectory, "package.json"));
 
 const svc = new Service({
 	name,
-	description: "",
+	// description: "",
 	script: path.join(workingDirectory, "start.js"),
 	workingDirectory
 });

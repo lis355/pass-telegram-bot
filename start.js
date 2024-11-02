@@ -1,4 +1,7 @@
+import path from "node:path";
+
 import dotenv from "dotenv-flow";
+import fs from "fs-extra";
 import ydc from "ydc";
 
 import Application from "./app/Application.js";
@@ -10,6 +13,10 @@ dotenv.config();
 
 await ydc();
 
+const CWD = path.resolve(process.cwd());
+
+const { name, version } = fs.readJsonSync(path.join(CWD, "package.json"));
+
 class AppManager extends Application {
 	constructor() {
 		super();
@@ -18,12 +25,20 @@ class AppManager extends Application {
 		this.addComponent(new TelegramBotManager(this));
 	}
 
-	get isDevelop() {
-		return process.env.DEVELOP === "true";
+	get isDevelopment() {
+		return process.env.DEVELOPER_ENVIRONMENT === "true";
+	}
+
+	async initialize() {
+		console.log(`${name} v${version}`);
+
+		if (this.isDevelopment) console.log("isDevelopment");
+
+		await super.initialize();
 	}
 
 	async quit(code = 0) {
-		if (!this.isDevelop) {
+		if (!this.isDevelopment) {
 			await new Promise(resolve => {
 				service.once("uninstall", resolve);
 

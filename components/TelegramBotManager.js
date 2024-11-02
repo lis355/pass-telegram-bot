@@ -52,7 +52,7 @@ export default class TelegramBotManager extends ApplicationComponent {
 
 		this.bot = new Telegraf(process.env.TELEGRAM_TOKEN);
 
-		if (this.application.isDevelop) {
+		if (this.application.isDevelopment) {
 			this.bot.use((ctx, next) => {
 				console.log(_.omit(ctx, "telegram"));
 
@@ -150,7 +150,7 @@ export default class TelegramBotManager extends ApplicationComponent {
 			.catch((error, ctx) => {
 				console.error(`Error for ${ctx.updateType}, ${error.message}, ${error.stack}`);
 			})
-			.launch({ dropPendingUpdates: !this.application.isDevelop });
+			.launch({ dropPendingUpdates: !this.application.isDevelopment });
 	}
 
 	async sendMessageWithAutoDelete(chatId, message, options) {

@@ -1,3 +1,3 @@
-const svc = require("./service");
+import svc from "./service.js";
 
 svc.install();

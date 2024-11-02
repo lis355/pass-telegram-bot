@@ -167,13 +167,13 @@ export default class KeePassDBManager extends ApplicationComponent {
 
 		this.#keePassDBSearcher = new KeePassDBSearcher(db);
 
-		console.log(`KeePassDB: loaded with ${dbProvider.constructor.name}`);
+		console.log(`[KeePassDB]: loaded with ${dbProvider.constructor.name}`);
 	}
 
 	searchEntries(pattern) {
 		const searchEntriesResult = this.#keePassDBSearcher.searchEntries(pattern);
 
-		console.log(`KeePassDB: searchedEntries ${searchEntriesResult.entries.length} with pattern ${pattern}`);
+		console.log(`[KeePassDB]: searchedEntries ${searchEntriesResult.entries.length} with pattern ${pattern}`);
 
 		return searchEntriesResult;
 	}

@@ -9,8 +9,9 @@
 			"type": "node",
 			"request": "launch",
 			"program": "${workspaceFolder}/start.js",
+			"cwd": "${workspaceFolder}",
 			"env": {
-				"DEVELOP": "true"
+				"DEVELOPER_ENVIRONMENT": "true"
 			}
 		},
 		{
@@ -21,7 +22,7 @@
 				"<node_internals>/**"
 			],
 			"program": "${workspaceFolder}/service/windows/serviceInstall.js",
-			"cwd": "${workspaceFolder}/service/windows/"
+			"cwd": "${workspaceFolder}"
 		},
 		{
 			"name": "service-windows-uninstall",
@@ -31,7 +32,7 @@
 				"<node_internals>/**"
 			],
 			"program": "${workspaceFolder}/service/windows/serviceUninstall.js",
-			"cwd": "${workspaceFolder}/service/windows/"
+			"cwd": "${workspaceFolder}"
 		}
 	]
 }
