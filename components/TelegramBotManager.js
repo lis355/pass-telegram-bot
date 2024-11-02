@@ -2,17 +2,14 @@ import { EOL } from "node:os";
 
 import _ from "lodash";
 import { message } from "telegraf/filters";
-import { Telegraf } from "telegraf";
+import { Telegraf, Markup } from "telegraf";
 
 import ApplicationComponent from "../app/ApplicationComponent.js";
 import generateUsernameAndPassword from "../tools/generateUsernameAndPassword.js";
 
 const MESSAGE_LIFETIME_IN_MILLISECONDS = 30000;
-const MAX_SEARCH_ENTRIES_COUNT = 3;
-
-function copyableText(str) {
-	return `\`${str}\``;
-}
+const MAX_SEARCH_ENTRIES_PRINT_COUNT = 3;
+const MAX_SEARCH_ENTRIES_BUTTONS_COUNT = 10;
 
 function isMeMiddleware(ctx, next) {
 	if (ctx.chat.id !== Number(process.env.TELEGRAM_USER_ID)) throw new Error(`Bad user @${ctx.chat.username} (id=${ctx.chat.id})`);
@@ -29,6 +26,24 @@ function commandMiddleware(ctx, next) {
 	};
 
 	return next();
+}
+
+function copyableText(str) {
+	return `\`${str}\``;
+}
+
+function formatEntryForCopy(entry) {
+	const title = `${entry.fields.get("Title")} (${entry.parentGroup.name})`;
+	const username = entry.fields.get("UserName");
+	const password = entry.fields.get("Password");
+	const notes = entry.fields.get("Notes");
+
+	const lines = [title];
+	if (username) lines.push(copyableText(username));
+	if (password) lines.push(copyableText(password.getText()));
+	if (notes) lines.push(...notes.split(EOL).map(copyableText));
+
+	return lines.join(EOL);
 }
 
 export default class TelegramBotManager extends ApplicationComponent {
@@ -76,50 +91,61 @@ export default class TelegramBotManager extends ApplicationComponent {
 
 					const message = lines.join(EOL);
 
-					this.autoDeleteContextMessage(ctx);
-					await this.sendMessageWithAutoDelete(ctx.message.chat.id, message, {
+					const telegramOptions = {
 						parse_mode: "Markdown"
-					});
+					};
+
+					this.autoDeleteContextMessage(ctx);
+					await this.sendMessageWithAutoDelete(ctx.message.chat.id, message, telegramOptions);
 				})
+			.action(/.+/, async ctx => {
+				const entry = this.application.keePassDbManager.searchEntryByUuid(ctx.match.input);
+				if (entry) {
+					const message = formatEntryForCopy(entry);
+
+					const telegramOptions = {
+						parse_mode: "Markdown"
+					};
+
+					// this.autoDeleteChatMessage(ctx.callbackQuery.message.chat.id, ctx.callbackQuery.message["message_id"]);
+					await this.sendMessageWithAutoDelete(ctx.callbackQuery.message.chat.id, message, telegramOptions);
+				}
+			})
 			.on(message("text"),
 				isMeMiddleware,
 				async ctx => {
-					let message;
+					let message = "";
+					let telegramOptions = {};
 
 					const searchEntriesResult = this.application.keePassDbManager.searchEntries(ctx.message.text);
 					if (searchEntriesResult.entries.length === 0) {
 						message = "Не найдено";
-					} else if (searchEntriesResult.entries.length >= MAX_SEARCH_ENTRIES_COUNT) {
+					} else if (searchEntriesResult.entries.length <= MAX_SEARCH_ENTRIES_PRINT_COUNT) {
 						message = searchEntriesResult.entries
-							.slice(0, MAX_SEARCH_ENTRIES_COUNT)
-							.map(entry => {
-								const title = `${entry.fields.get("Title")} (${entry.parentGroup.name})`;
+							.map(formatEntryForCopy)
+							.join(EOL + EOL);
 
-								const lines = [copyableText(title)];
-
-								return lines.join(EOL);
-							}).join(EOL);
+						telegramOptions = {
+							parse_mode: "Markdown"
+						};
 					} else {
-						message = searchEntriesResult.entries
-							.map(entry => {
-								const title = `${entry.fields.get("Title")} (${entry.parentGroup.name})`;
-								const username = entry.fields.get("UserName");
-								const password = entry.fields.get("Password");
-								const notes = entry.fields.get("Notes");
+						message = `${ctx.message.text} [${searchEntriesResult.entries.length}]`;
 
-								const lines = [title];
-								if (username) lines.push(copyableText(username));
-								if (password) lines.push(copyableText(password.getText()));
-								if (notes) lines.push(...notes.split(EOL).map(copyableText));
+						telegramOptions = Markup.inlineKeyboard(
+							searchEntriesResult.entries
+								.slice(0, MAX_SEARCH_ENTRIES_BUTTONS_COUNT)
+								.map(entry => {
+									const title = `${entry.fields.get("Title")} (${entry.parentGroup.name})`;
 
-								return lines.join(EOL);
-							}).join(EOL + EOL);
+									return [
+										Markup.button.callback(title, entry.uuid.valueOf())
+									];
+								})
+						);
 					}
 
 					this.autoDeleteContextMessage(ctx);
-					await this.sendMessageWithAutoDelete(ctx.message.chat.id, message, {
-						parse_mode: "Markdown"
-					});
+					await this.sendMessageWithAutoDelete(ctx.message.chat.id, message, telegramOptions);
 				})
 			.catch((error, ctx) => {
 				console.error(`Error for ${ctx.updateType}, ${error.message}, ${error.stack}`);
@@ -130,16 +156,16 @@ export default class TelegramBotManager extends ApplicationComponent {
 	async sendMessageWithAutoDelete(chatId, message, options) {
 		const sendMessageResponse = await this.bot.telegram.sendMessage(chatId, message, options);
 
-		await this.autoDeleteMessage(chatId, sendMessageResponse["message_id"]);
+		await this.autoDeleteChatMessage(chatId, sendMessageResponse["message_id"]);
 	}
 
-	autoDeleteMessage(chatId, messageId) {
+	autoDeleteChatMessage(chatId, messageId) {
 		setTimeout(async () => {
 			await this.bot.telegram.deleteMessage(chatId, messageId);
 		}, MESSAGE_LIFETIME_IN_MILLISECONDS);
 	}
 
 	autoDeleteContextMessage(ctx) {
-		this.autoDeleteMessage(ctx.message.chat.id, ctx.message["message_id"]);
+		this.autoDeleteChatMessage(ctx.message.chat.id, ctx.message["message_id"]);
 	}
 }
