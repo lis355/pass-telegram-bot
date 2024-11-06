@@ -5,13 +5,56 @@ import kdbxweb from "kdbxweb";
 import ApplicationComponent from "../app/ApplicationComponent.js";
 
 class KeePassDBProvider {
-	async getDB() { }
+	async loadDb() { }
+	async saveDb(db) { }
 }
 
 class YandexDiskRemoteDBProvider extends KeePassDBProvider {
-	async getDB() {
+	#baseURL = "https://cloud-api.yandex.net/v1/disk/";
+
+	async #downloadFile(yandexDiskFilePath) {
+		// https://yandex.ru/dev/disk-api/doc/ru/reference/content
+
+		const resourcesDownloadResponse = await this.request({
+			url: "resources/download",
+			method: "GET",
+			params: {
+				path: yandexDiskFilePath
+			}
+		});
+
+		const downloadResponse = await axios({
+			url: resourcesDownloadResponse.data.href,
+			method: resourcesDownloadResponse.data.method,
+			responseType: "arraybuffer"
+		});
+
+		return downloadResponse.data;
+	}
+
+	async #uploadFile(yandexDiskFilePath, fileData) {
+		// https://yandex.ru/dev/disk-api/doc/ru/reference/upload
+
+		const resourcesUploadResponse = await this.request({
+			url: "resources/upload",
+			method: "GET",
+			params: {
+				path: yandexDiskFilePath,
+				overwrite: true
+			}
+		});
+
+		// const uploadResponse =
+		await axios({
+			url: resourcesUploadResponse.data.href,
+			method: resourcesUploadResponse.data.method,
+			data: fileData
+		});
+	}
+
+	async loadDb() {
 		this.request = axios.create({
-			baseURL: "https://cloud-api.yandex.net/v1/disk/",
+			baseURL: this.#baseURL,
 			headers: {
 				"authorization": "OAuth " + process.env.YANDEX_DISK_OAUTH_TOKEN
 			}
@@ -20,51 +63,25 @@ class YandexDiskRemoteDBProvider extends KeePassDBProvider {
 		const credentials = new kdbxweb.Credentials();
 		if (process.env.YANDEX_DISK_KEEPASS_DB_MASTER_PASSWORD) await credentials.setPassword(kdbxweb.ProtectedValue.fromString(process.env.YANDEX_DISK_KEEPASS_DB_MASTER_PASSWORD));
 		if (process.env.YANDEX_DISK_KEEPASS_DB_KEY_FILE_PATH) {
-			const keyFileData = await this.downloadFile(process.env.YANDEX_DISK_KEEPASS_DB_KEY_FILE_PATH);
+			const keyFileData = await this.#downloadFile(process.env.YANDEX_DISK_KEEPASS_DB_KEY_FILE_PATH);
 			await credentials.setKeyFile(keyFileData);
 		}
 
-		const kdbxFileData = await this.downloadFile(process.env.YANDEX_DISK_KEEPASS_DB_FILE_PATH);
+		const kdbxFileData = await this.#downloadFile(process.env.YANDEX_DISK_KEEPASS_DB_FILE_PATH);
 		const db = await kdbxweb.Kdbx.load(new Uint8Array(kdbxFileData).buffer, credentials);
 
 		return db;
 	}
 
-	async downloadFile(yandexDiskFilePath) {
-		const fileInfoResponse = await this.infoRequest(yandexDiskFilePath);
-		if (fileInfoResponse.path) {
-			const response = await axios.get(fileInfoResponse.file, {
-				responseType: "arraybuffer"
-			});
+	async saveDb(db) {
+		const kdbxFileData = await db.save();
 
-			return response.data;
-		}
-
-		return null;
-	}
-
-	async infoRequest(path) {
-		try {
-			const response = await this.request.get("resources", {
-				params: {
-					path
-				}
-			});
-
-			return response.data;
-		} catch (error) {
-			if (error.response &&
-				error.response.status === 404) {
-				return { path: null };
-			} else {
-				throw error;
-			}
-		}
+		await this.#uploadFile(process.env.YANDEX_DISK_KEEPASS_DB_FILE_PATH, new Uint8Array(kdbxFileData));
 	}
 }
 
 class YandexDiskLocalDBProvider extends KeePassDBProvider {
-	async getDB() {
+	async loadDb() {
 		const credentials = new kdbxweb.Credentials();
 		if (process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_MASTER_PASSWORD) await credentials.setPassword(kdbxweb.ProtectedValue.fromString(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_MASTER_PASSWORD));
 		if (process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_KEY_FILE_PATH) await credentials.setKeyFile(fs.readFileSync(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_KEY_FILE_PATH));
@@ -74,13 +91,50 @@ class YandexDiskLocalDBProvider extends KeePassDBProvider {
 
 		return db;
 	}
+
+	async saveDb(db) {
+		const kdbxFileData = await db.save();
+
+		fs.writeFileSync(process.env.YANDEX_DISK_LOCAL_KEEPASS_DB_FILE_PATH, new Uint8Array(kdbxFileData));
+	}
 }
 
-class KeePassDBSearcher {
+export default class KeePassDBManager extends ApplicationComponent {
+	#dbProvider;
 	#db;
 
-	constructor(db) {
-		this.#db = db;
+	async initialize() {
+		await super.initialize();
+
+		await this.#loadDb();
+	}
+
+	async #loadDb() {
+		this.#dbProvider = process.env.YANDEX_DISK_USE_REMOTE === "true"
+			? new YandexDiskRemoteDBProvider()
+			: new YandexDiskLocalDBProvider();
+
+		this.#db = await this.#dbProvider.loadDb();
+
+		this.#db.cleanup({
+			historyRules: true,
+			customIcons: true,
+			binaries: true
+		});
+
+		this.#db.upgrade();
+
+		console.log(`[KeePassDB]: loaded with ${this.#dbProvider.constructor.name}`);
+	}
+
+	async reloadDb() {
+		await this.#loadDb();
+	}
+
+	async saveDb() {
+		await this.#dbProvider.saveDb(this.#db);
+
+		console.log(`[KeePassDB]: saved with ${this.#dbProvider.constructor.name}`);
 	}
 
 	#recursiveVisitGroup(group, visitor) {
@@ -89,7 +143,7 @@ class KeePassDBSearcher {
 			result.stop) return;
 
 		for (const childGroup of group.groups) {
-			if (childGroup.name === "Recycle Bin") continue;
+			if (childGroup.uuid.equals(this.#db.meta.recycleBinUuid)) continue;
 
 			this.#recursiveVisitGroup(childGroup, visitor);
 		}
@@ -98,6 +152,7 @@ class KeePassDBSearcher {
 	searchEntries(pattern) {
 		const patternsInLowerCase = pattern.split(" ")
 			.map(s => s.trim().toLowerCase())
+
 			.map(s =>
 				s.startsWith("(") &&
 					s.endsWith(")")
@@ -129,6 +184,8 @@ class KeePassDBSearcher {
 			}
 		});
 
+		console.log(`[KeePassDB]: searchedEntries ${searchEntriesResult.entries.length} with pattern ${pattern}`);
+
 		return searchEntriesResult;
 	}
 
@@ -147,38 +204,40 @@ class KeePassDBSearcher {
 
 		return result;
 	}
-}
 
-export default class KeePassDBManager extends ApplicationComponent {
-	#keePassDBSearcher;
+	getAllGroups() {
+		const groups = [];
 
-	async initialize() {
-		await super.initialize();
+		this.#recursiveVisitGroup(this.#db.getDefaultGroup(), group => {
+			groups.push(group);
+		});
 
-		await this.#loadDB();
+		return groups;
 	}
 
-	async #loadDB() {
-		const dbProvider = process.env.YANDEX_DISK_USE_REMOTE === "true"
-			? new YandexDiskRemoteDBProvider()
-			: new YandexDiskLocalDBProvider();
+	getGroupByName(groupName) {
+		let result;
 
-		const db = await dbProvider.getDB();
+		this.#recursiveVisitGroup(this.#db.getDefaultGroup(), group => {
+			if (group.name === groupName) {
+				result = group;
 
-		this.#keePassDBSearcher = new KeePassDBSearcher(db);
+				return { stop: true };
+			}
+		});
 
-		console.log(`[KeePassDB]: loaded with ${dbProvider.constructor.name}`);
+		return result;
 	}
 
-	searchEntries(pattern) {
-		const searchEntriesResult = this.#keePassDBSearcher.searchEntries(pattern);
+	createEntry(group, title, username, password, comments) {
+		const entry = this.#db.createEntry(group);
+		entry.fields.set("Title", title);
+		entry.fields.set("UserName", username);
+		entry.fields.set("Password", password);
+		entry.fields.set("Notes", comments);
 
-		console.log(`[KeePassDB]: searchedEntries ${searchEntriesResult.entries.length} with pattern ${pattern}`);
+		console.log(`[KeePassDB]: enry ${title} in group ${group.name} created`);
 
-		return searchEntriesResult;
-	}
-
-	searchEntryByUuid(uuidString) {
-		return this.#keePassDBSearcher.searchEntryByUuid(uuidString);
+		return entry;
 	}
 }

@@ -21,6 +21,9 @@ class AppManager extends Application {
 	constructor() {
 		super();
 
+		this.name = name;
+		this.version = version;
+
 		this.addComponent(new KeePassDBManager(this));
 		this.addComponent(new TelegramBotManager(this));
 	}
