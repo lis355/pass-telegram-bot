@@ -10,7 +10,7 @@ Options for using
 
 `YANDEX_DISK_USE_REMOTE=` using remote or local Yandex Disk
 
-`YANDEX_DISK_OAUTH_TOKEN=` if remote Yandex Disk, acess token. Can be generated there https://oauth.yandex.ru/
+`YANDEX_DISK_OAUTH_TOKEN=` if remote Yandex Disk, acess token. How to generate read https://yandex.ru/dev/disk-api/doc/ru/concepts/quickstart#quickstart__oauth
 
 `YANDEX_DISK_KEEPASS_DB_FILE_PATH=` remote path to DB (example: `"/DB/DB.kdbx"`)
 `YANDEX_DISK_KEEPASS_DB_KEY_FILE_PATH=` remote path to DB (example: `"/DB/KEY.key"`)

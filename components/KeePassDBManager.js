@@ -9,6 +9,7 @@ class KeePassDBProvider {
 	async saveDb(db) { }
 }
 
+// https://yandex.ru/dev/disk-api/doc/ru/concepts/quickstart#quickstart__oauth
 class YandexDiskRemoteDBProvider extends KeePassDBProvider {
 	#baseURL = "https://cloud-api.yandex.net/v1/disk/";
 
@@ -59,6 +60,17 @@ class YandexDiskRemoteDBProvider extends KeePassDBProvider {
 				"authorization": "OAuth " + process.env.YANDEX_DISK_OAUTH_TOKEN
 			}
 		});
+
+		this.request.interceptors.response.use(
+			response => {
+				return response;
+			},
+			error => {
+				console.error(JSON.stringify(error.response.data));
+
+				return Promise.reject(error);
+			}
+		);
 
 		const credentials = new kdbxweb.Credentials();
 		if (process.env.YANDEX_DISK_KEEPASS_DB_MASTER_PASSWORD) await credentials.setPassword(kdbxweb.ProtectedValue.fromString(process.env.YANDEX_DISK_KEEPASS_DB_MASTER_PASSWORD));
