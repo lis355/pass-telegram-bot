@@ -61,7 +61,7 @@ export default class TelegramBotManager extends ApplicationComponent {
 		this.bot
 			.use(
 				(ctx, next) => {
-					// if (this.application.isDevelopment) console.log(_.omit(ctx, "telegram"));
+					if (this.application.isDevelopment) console.log(JSON.stringify(_.omit(ctx, "telegram"), null, 2));
 
 					return next();
 				},
@@ -115,7 +115,7 @@ export default class TelegramBotManager extends ApplicationComponent {
 					ctx.scene.enter("main");
 				})
 				.command("stop", async ctx => {
-					this.application.quit(1);
+					this.bot.stop();
 				})
 				.command("refresh", async ctx => {
 					await this.application.keePassDbManager.reloadDb();

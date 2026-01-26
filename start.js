@@ -6,7 +6,6 @@ import ydc from "ydc";
 
 import Application from "./app/Application.js";
 import KeePassDBManager from "./components/KeePassDBManager.js";
-import service from "./service/windows/service.js";
 import TelegramBotManager from "./components/TelegramBotManager.js";
 
 dotenv.config();
@@ -38,18 +37,6 @@ class AppManager extends Application {
 		if (this.isDevelopment) console.log("isDevelopment");
 
 		await super.initialize();
-	}
-
-	async quit(code = 0) {
-		if (!this.isDevelopment) {
-			await new Promise(resolve => {
-				service.once("uninstall", resolve);
-
-				service.uninstall();
-			});
-		}
-
-		await super.quit(code);
 	}
 }
 
