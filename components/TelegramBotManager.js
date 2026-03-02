@@ -38,16 +38,31 @@ function copyableText(str) {
 	return `\`${str}\``;
 }
 
-function formatEntryForCopy(entry) {
+const QUOTE = "`";
+
+function getEntryFields(entry) {
 	const title = `${entry.fields.get("Title")} (${entry.parentGroup.name})`;
 	const username = entry.fields.get("UserName");
-	const password = entry.fields.get("Password");
+
+	let password = entry.fields.get("Password");
+	password = password.getText ? password.getText() : password;
+
 	const notes = entry.fields.get("Notes");
 
+	return { title, username, password, notes };
+}
+
+function canCopyEntryFields({ title, username, password, notes }) {
+	return ![title, username, password, ...notes].some(str => str.includes(QUOTE));
+}
+
+function formatEntryFields({ title, username, password, notes }, useMarkdown) {
+	const transformStr = str => useMarkdown ? copyableText(str) : str;
+
 	const lines = [title];
-	if (username) lines.push(copyableText(username));
-	if (password) lines.push(copyableText(password.getText ? password.getText() : password));
-	if (notes) lines.push(...notes.split(EOL).map(copyableText));
+	if (username) lines.push(transformStr(username));
+	if (password) lines.push(transformStr(password));
+	if (notes) lines.push(...notes.split(EOL).map(transformStr));
 
 	return lines.join(EOL);
 }
@@ -61,7 +76,7 @@ export default class TelegramBotManager extends ApplicationComponent {
 		this.bot
 			.use(
 				(ctx, next) => {
-					if (this.application.isDevelopment) console.log(JSON.stringify(_.omit(ctx, "telegram"), null, 2));
+					// if (this.application.isDevelopment) console.log(JSON.stringify(_.omit(ctx, "telegram"), null, 2));
 
 					return next();
 				},
@@ -151,11 +166,12 @@ export default class TelegramBotManager extends ApplicationComponent {
 				.action(/.+/, async ctx => {
 					const entry = this.application.keePassDbManager.searchEntryByUuid(ctx.match.input);
 					if (entry) {
-						const message = formatEntryForCopy(entry);
+						const entryFields = getEntryFields(entry);
+						const useMarkdown = canCopyEntryFields(entryFields);
+						const message = formatEntryFields(entryFields, useMarkdown);
 
-						const telegramOptions = {
-							parse_mode: "Markdown"
-						};
+						const telegramOptions = {};
+						if (useMarkdown) telegramOptions["parse_mode"] = "Markdown";
 
 						await this.#sendMessageWithAutoDelete(ctx.callbackQuery.message.chat.id, message, telegramOptions);
 					}
@@ -168,13 +184,13 @@ export default class TelegramBotManager extends ApplicationComponent {
 					if (searchEntriesResult.entries.length === 0) {
 						message = "Не найдено";
 					} else if (searchEntriesResult.entries.length <= MAX_SEARCH_ENTRIES_PRINT_COUNT) {
-						message = searchEntriesResult.entries
-							.map(formatEntryForCopy)
+						const entryFields = searchEntriesResult.entries.map(getEntryFields);
+						const useMarkdown = entryFields.every(canCopyEntryFields);
+						message = entryFields
+							.map(entryFields => formatEntryFields(entryFields, useMarkdown))
 							.join(EOL + EOL);
 
-						telegramOptions = {
-							parse_mode: "Markdown"
-						};
+						if (useMarkdown) telegramOptions["parse_mode"] = "Markdown";
 					} else {
 						message = `${ctx.message.text} [${searchEntriesResult.entries.length}]`;
 
@@ -359,11 +375,18 @@ ${copyableText("/psw")} - generate username and passwords`;
 		const entry = await this.application.keePassDbManager.createEntry(ctx.session.group, ctx.session.title, ctx.session.username, ctx.session.password, "");
 		await this.application.keePassDbManager.saveDb();
 
+		const entryFields = getEntryFields(entry);
+		const useMarkdown = canCopyEntryFields(entryFields);
+		const message = formatEntryFields(entryFields, useMarkdown);
+
+		const telegramOptions = {};
+		if (useMarkdown) telegramOptions["parse_mode"] = "Markdown";
+
 		await this.#sendMessageWithAutoDelete(ctx.chat.id, [
 			"New entry added",
 			"",
-			formatEntryForCopy(entry)
-		].join(EOL), { parse_mode: "Markdown" });
+			message
+		].join(EOL), telegramOptions);
 	}
 
 	#pushMessageIdToMessageToDeleteIds(ctx, message) {
